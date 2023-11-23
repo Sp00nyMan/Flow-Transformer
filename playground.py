@@ -3,6 +3,6 @@ from model import *
 
 input = torch.randn(1, 1, 8, 8)
 
-model = Patchification(1, 2, 2)
-out = model(input)
+model = FlowFormer(1,8, 2)
+out = model(input)[0]
 model.reverse(out)

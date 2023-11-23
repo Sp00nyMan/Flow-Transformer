@@ -150,7 +150,7 @@ class NetBlock(nn.Module):
 
 
 class AffineCoupling(nn.Module):
-    def __init__(self, in_channels, in_seq, affine=True):
+    def __init__(self, in_channels, in_seq, affine=False):
         super().__init__()
 
         # self.affine = affine
@@ -188,12 +188,12 @@ class AffineCoupling(nn.Module):
 
 
 class Flow(nn.Module):
-    def __init__(self, in_channels: int) -> None:
+    def __init__(self, in_channels: int, seq_len: int) -> None:
         super().__init__()
 
         self.norm = ActNorm(in_channels)
         self.inv_conv = InvConvLU(in_channels)
-        self.coupling = AffineCoupling(in_channels)
+        self.coupling = AffineCoupling(in_channels, seq_len)
 
     def forward(self, x: torch.Tensor):
         z, log_det_norm = self.norm(x)
@@ -224,12 +224,15 @@ class Patchification(nn.Module):
                                            patch_size, patch_size)
         self.patch_size = patch_size
     
+    def get_seq_len(self, img_size: int):
+        return int((img_size // self.patch_size)**2)
+    
     def forward(self, x: torch.Tensor):
         b, c, h, w = x.shape
 
         x = self.proj(x)
 
-        x = x.reshape(b, self.proj.out_channels, -1)#h*w // self.patch_size**2)
+        x = x.reshape(b, self.proj.out_channels, self.get_seq_len(h))
 
         if self.permute:
             x = x.permute(0, 2, 1)
@@ -241,8 +244,8 @@ class Patchification(nn.Module):
 
         if self.permute:
             x = x.permute(0, 2, 1)
-        
-        x = x.reshape(b, c, (k * self.patch_size ** 2)**0.5) # assume that the image is square
+        hw = int(k**0.5) # assume that the image is square
+        x = x.reshape(b, c, hw, hw)
 
         x = self.inv_proj(x)
 
@@ -250,7 +253,7 @@ class Patchification(nn.Module):
 
 
 class FlowFormer(nn.Module):
-    def __init__(self, in_channels: int, patch_size: int = 2):
+    def __init__(self, in_channels: int, img_size: int, patch_size: int = 2):
         super().__init__()
 
         self.patch = Patchification(in_channels, 
@@ -258,20 +261,20 @@ class FlowFormer(nn.Module):
                                     patch_size=patch_size)
         self.attention = None
 
-        self.flow = Flow(in_channels)
+        self.flow = Flow(in_channels*4, self.patch.get_seq_len(img_size)//4)
     
     def forward(self, x: torch.Tensor):
         x = self.patch(x)
         b, c, k = x.shape
         x = x.reshape(b, c*4, k//4)
-        x = self.attention(x)
-        x = self.flow(x)
+        # x = self.attention(x)
+        x, log_det = self.flow(x)
 
-        return x
+        return x, log_det
 
     def reverse(self, z: torch.Tensor):
         x = self.flow.reverse(z)
-        x = self.attention.reverse(x)
+        # x = self.attention.reverse(x)
         b, c4, k4 = x.shape
         x = x.reshape(b, c4//4, k4*4)
         x = self.patch.reverse(x)
