@@ -122,9 +122,9 @@ def main():
     )
 
     trainset = datasets.CIFAR10(root='data', download=True, transform=transform_train)
-    trainloader = DataLoader(Subset(trainset, list(range(100))), batch_size=args.batch, shuffle=True)
+    trainloader = DataLoader(trainset, batch_size=args.batch, shuffle=True)
     testset = datasets.CIFAR10(root='data', train=False, transform=transform_test)
-    testloader = DataLoader(Subset(testset, list(range(100))), batch_size=args.batch, shuffle=False)
+    testloader = DataLoader(testset, batch_size=args.batch, shuffle=False)
 
     print("Building the model...")
     model = FlowFormer(3, args.img_size, args.n_blocks)#Glow(args.img_size, 3, args.n_flows, args.n_blocks, affine=args.affine, conv_lu=not args.no_lu)

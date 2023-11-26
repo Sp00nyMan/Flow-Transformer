@@ -107,21 +107,6 @@ class InvConvLU(nn.Module):
         return F.conv1d(output, weight)
 
 
-class ZeroConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-
-        self.conv = nn.Conv1d(in_channels, out_channels, 3)
-        self.conv.weight.data.zero_()
-        self.conv.bias.data.zero_()
-        self.scale = nn.Parameter(torch.zeros(1, out_channels, 1))
-
-    def forward(self, input):
-        out = F.pad(input, [1, 1], value=1)
-        out = self.conv(out)
-        out = out * torch.exp(self.scale * 3)
-
-        return out
 
 
 class NetBlock(nn.Module):

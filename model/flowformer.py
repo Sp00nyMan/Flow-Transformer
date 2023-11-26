@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from .flow import Flow
 from .attention import ReversibleAttention
+from util import ZeroConv
 
 
 class Patchification(nn.Module):
@@ -42,6 +43,36 @@ class Patchification(nn.Module):
 
         return x
 
+from math import log, pi
+def gaussian_log_p(x, mean, log_sd):
+    return -0.5 * log(2 * pi) - log_sd - 0.5 * (x - mean) ** 2 / torch.exp(2 * log_sd)
+
+
+class Block(nn.Module):
+    def __init__(self, in_channels: int, seq_len: int, attention_heads: int) -> None:
+        super().__init__()
+
+        self.attention = ReversibleAttention(seq_len, attention_heads)
+        self.flow = Flow(in_channels, seq_len)
+        self.prior = ZeroConv(in_channels, in_channels * 2)
+    
+    def forward(self, x: torch.Tensor):
+        x = self.attention(x)
+        x, log_det = self.flow(x)
+
+        zero = torch.zeros_like(x)
+        mean, log_sd = self.prior(zero).chunk(2, 1)
+        log_p = gaussian_log_p(x, mean, log_sd)
+        log_p = log_p.reshape(x.shape[0], -1).sum(1)
+
+        return x, log_det, log_p
+
+    def reverse(self, out: torch.Tensor):
+        x = self.flow.reverse(out)
+        x = self.attention.reverse(x)
+
+        return x
+
 
 class FlowFormer(nn.Module):
     def __init__(self, in_channels: int, img_size: int, num_blocks: int = 2, patch_size: int = 2, attention_heads: int = 4):
@@ -55,7 +86,7 @@ class FlowFormer(nn.Module):
 
         seq_len //= 4
         in_channels *= 4
-        self.blocks = [(ReversibleAttention(seq_len, attention_heads), Flow(in_channels, seq_len)) for _ in range(num_blocks)]
+        self.blocks = nn.ModuleList([Block(in_channels, seq_len, attention_heads) for _ in range(num_blocks)])
         
     
     def forward(self, x: torch.Tensor):
@@ -64,18 +95,18 @@ class FlowFormer(nn.Module):
         b, c, k = x.shape
         x = x.reshape(b, c*4, k//4)
         log_det = 0
-        for attn, flow in self.blocks:
-            x = attn(x)
-            x, ld = flow(x)
+        log_p = 0
+        for block in self.blocks:
+            x, ld, lp = block(x)
             log_det += ld
+            log_p += lp
 
-        return x, log_det
+        return log_p, log_det
 
     def reverse(self, z: torch.Tensor):
         x = z
-        for attn, flow in reversed(self.blocks):
-            x = flow.reverse(x)
-            x = attn.reverse(x)
+        for block in reversed(self.blocks):
+            x = block.reverse(x)
         b, c4, k4 = x.shape
         x = x.reshape(b, c4//4, k4*4)
         x -= self.pos_embedding
