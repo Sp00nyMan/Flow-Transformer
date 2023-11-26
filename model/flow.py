@@ -125,7 +125,7 @@ class ZeroConv(nn.Module):
 
 
 class NetBlock(nn.Module):
-    def __init__(self, in_channels, in_seq_len, hidden_sizes: list[int]=[1, 2]) -> None:
+    def __init__(self, in_channels, in_seq_len, hidden_sizes: list[int]=[256, 256]) -> None:
         super().__init__()
 
         self.in_channels = in_channels
@@ -196,14 +196,16 @@ class Flow(nn.Module):
         self.norm = ActNorm(in_channels)
         self.inv_conv = InvConvLU(in_channels)
         self.coupling = AffineCoupling(in_channels, seq_len)
+        # TODO potentially add another ActNorm
 
     def forward(self, x: torch.Tensor):
         z, log_det_norm = self.norm(x)
         z, log_det_conv = self.inv_conv(z)
         z, log_det_coup = self.coupling(z)
 
-        log_det = log_det_norm + log_det_conv + \
-            log_det_coup if log_det_coup else 0
+        log_det = log_det_norm + log_det_conv 
+        if log_det_coup:
+            log_det += log_det_coup
 
         return z, log_det
 

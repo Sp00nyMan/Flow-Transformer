@@ -1,1 +1,1 @@
-from flowformer import FlowFormer
+from .flowformer import FlowFormer

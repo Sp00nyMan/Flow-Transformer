@@ -1,6 +1,7 @@
 import torch
 from torch import nn
-from flow import Flow
+from .flow import Flow
+from .attention import ReversibleAttention
 
 
 class Patchification(nn.Module):
@@ -43,29 +44,40 @@ class Patchification(nn.Module):
 
 
 class FlowFormer(nn.Module):
-    def __init__(self, in_channels: int, img_size: int, patch_size: int = 2):
+    def __init__(self, in_channels: int, img_size: int, num_blocks: int = 2, patch_size: int = 2, attention_heads: int = 4):
         super().__init__()
 
         self.patch = Patchification(in_channels, 
                                     out_channels=in_channels, 
                                     patch_size=patch_size)
-        self.attention = None
+        seq_len = self.patch.get_seq_len(img_size)
+        self.pos_embedding = nn.Parameter(torch.empty(1, in_channels, seq_len).normal_(std=0.02)) # From ViT
 
-        self.flow = Flow(in_channels*4, self.patch.get_seq_len(img_size)//4)
+        seq_len //= 4
+        in_channels *= 4
+        self.blocks = [(ReversibleAttention(seq_len, attention_heads), Flow(in_channels, seq_len)) for _ in range(num_blocks)]
+        
     
     def forward(self, x: torch.Tensor):
         x = self.patch(x)
+        x += self.pos_embedding
         b, c, k = x.shape
         x = x.reshape(b, c*4, k//4)
-        # x = self.attention(x)
-        x, log_det = self.flow(x)
+        log_det = 0
+        for attn, flow in self.blocks:
+            x = attn(x)
+            x, ld = flow(x)
+            log_det += ld
 
         return x, log_det
 
     def reverse(self, z: torch.Tensor):
-        x = self.flow.reverse(z)
-        # x = self.attention.reverse(x)
+        x = z
+        for attn, flow in reversed(self.blocks):
+            x = flow.reverse(x)
+            x = attn.reverse(x)
         b, c4, k4 = x.shape
         x = x.reshape(b, c4//4, k4*4)
+        x -= self.pos_embedding
         x = self.patch.reverse(x)
         return x
