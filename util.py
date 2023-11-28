@@ -75,35 +75,3 @@ def preprocess_images(images: Tensor, device, n_bits):
     images += torch.rand_like(images) / n_bins
 
     return images
-
-
-def calc_z_shapes(n_channel, input_size, n_block):
-    z_shapes = []
-
-    for _ in range(n_block - 1):
-        input_size //= 2
-        n_channel *= 2
-
-        z_shapes.append((n_channel, input_size, input_size))
-
-    input_size //= 2
-    z_shapes.append((n_channel * 4, input_size, input_size))
-
-    return z_shapes
-
-
-class ZeroConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-
-        self.conv = nn.Conv1d(in_channels, out_channels, 3)
-        self.conv.weight.data.zero_()
-        self.conv.bias.data.zero_()
-        self.scale = nn.Parameter(torch.zeros(1, out_channels, 1))
-
-    def forward(self, input):
-        out = F.pad(input, [1, 1], value=1)
-        out = self.conv(out)
-        out = out * torch.exp(self.scale * 3)
-
-        return out

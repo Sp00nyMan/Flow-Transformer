@@ -16,4 +16,4 @@ echo "--------------------------------------------------------------------------
 echo "Job ID: " $SLURM_JOB_ID
 echo "Job Name: " $SLURM_JOB_NAME
 
-python train.py
+python train.py --n_attnflow 16
