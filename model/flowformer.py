@@ -117,6 +117,6 @@ class FlowFormer(nn.Module):
         return x
 
     def sample(self, num_samples: int, temp: float):
-        z_list = [torch.randn(num_samples, *block.out_shape) * temp for block in self.blocks]
+        z_list = [torch.randn(num_samples, *block.out_shape).to(self.pos_embedding.device) * temp for block in self.blocks]
         samples = self.reverse(z_list)
         return samples

@@ -47,7 +47,7 @@ def train(epoch, model: FlowFormer, optimizer, dataloader: DataLoader):
         log_p, log_det = model(images)
 
         loss, log_p, log_det = criterion(log_p, log_det)
-        loss *= args.loss_scale
+        # loss *= args.loss_scale
         loss.backward()
         optimizer.step()
 
@@ -66,7 +66,7 @@ def test(epoch, model: FlowFormer, dataloader: DataLoader):
 
             log_p, log_det = model(images)
             loss, log_p, log_det = criterion(log_p, log_det)
-            loss *= args.loss_scale
+            # loss *= args.loss_scale
             total_loss += loss.item()
     
     avg_loss = total_loss / len(dataloader)
