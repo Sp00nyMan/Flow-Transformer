@@ -107,8 +107,6 @@ class InvConvLU(nn.Module):
         return F.conv1d(output, weight)
 
 
-
-
 class NetBlock(nn.Module):
     def __init__(self, in_channels, in_seq_len, hidden_sizes: list[int]=[256, 256]) -> None:
         super().__init__()
