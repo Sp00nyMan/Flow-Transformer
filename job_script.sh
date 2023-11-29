@@ -9,7 +9,7 @@
 module load miniconda3
 source ~/.bashrc
 conda deactivate
-conda activate rnvp
+conda activate flow
 
 echo "-----------------------------------------------------------------------------------------"
 
