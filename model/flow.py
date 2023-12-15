@@ -135,39 +135,29 @@ class NetBlock(nn.Module):
 
 
 class AffineCoupling(nn.Module):
-    def __init__(self, in_channels, in_seq, affine=False):
+    def __init__(self, in_channels, in_seq):
         super().__init__()
 
-        # self.affine = affine
         in_channels //= 2
         self.net = NetBlock(in_channels, in_seq)
 
     def forward(self, input):
         in_a, in_b = input.chunk(2, 1)
 
-        # if self.affine:
-        #     log_s, t = self.net(in_a).chunk(2, 1)
-        #     s = F.sigmoid(log_s + 2)
-        #     out_b = (in_b + t) * s
+        log_s, t = self.net(in_a).chunk(2, 1)
+        s = F.sigmoid(log_s + 2)
+        out_b = (in_b + t) * s
 
-        #     logdet = torch.sum(torch.log(s).view(input.shape[0], -1), 1)
-        # else:
-        net_out = self.net(in_a)
-        out_b = in_b + net_out
-        logdet = None
+        logdet = torch.sum(torch.log(s).view(input.shape[0], -1), 1)
 
         return torch.cat([in_a, out_b], 1), logdet
 
     def reverse(self, output):
         out_a, out_b = output.chunk(2, 1)
 
-        # if self.affine:
-        #     log_s, t = self.net(out_a).chunk(2, 1)
-        #     s = F.sigmoid(log_s + 2)
-        #     in_b = out_b / s - t
-        # else:
-        net_out = self.net(out_a)
-        in_b = out_b - net_out
+        log_s, t = self.net(out_a).chunk(2, 1)
+        s = F.sigmoid(log_s + 2)
+        in_b = out_b / s - t
 
         return torch.cat([out_a, in_b], 1)
 

@@ -13,7 +13,7 @@ class Attention(nn.Module):
         x, _ = self.attention(x, x, x, need_weights=False)
         return x
 
-
+# TODO Potentially ensure correctness of backpropagation
 class ReversibleAttention(nn.Module):
     def __init__(self, seq_len: int, num_heads=2):
         super().__init__()
