@@ -33,6 +33,7 @@ class Patchification(nn.Module):
 
         self.permute = permute
         out_channels = in_channels * patch_size**2 # ensures no information loss
+        # TODO Change to BCOSConv2d
         self.proj = nn.Conv2d(in_channels, out_channels, 
                               patch_size, patch_size)
         self.inv_proj = nn.ConvTranspose2d(out_channels, in_channels, 

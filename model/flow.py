@@ -110,7 +110,7 @@ class InvConvLU(nn.Module):
 class NetBlock(nn.Module):
     def __init__(self, in_channels, in_seq_len, hidden_sizes: list[int]=[256, 256]) -> None:
         super().__init__()
-
+        # TODO Change to B_COS_Linear
         self.in_channels = in_channels
         layers = [nn.Linear(in_channels * in_seq_len, hidden_sizes[0]),
                   nn.ReLU()]
@@ -145,7 +145,6 @@ class AffineCoupling(nn.Module):
         in_a, in_b = input.chunk(2, 1)
 
         log_s, t = self.net(in_a).chunk(2, 1)
-        s = F.sigmoid(log_s + 2)
         out_b = (in_b + t) * s
 
         logdet = torch.sum(torch.log(s).view(input.shape[0], -1), 1)
